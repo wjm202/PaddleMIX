@@ -20,7 +20,7 @@ import sys
 import time
 
 import paddle
-from paddlenlp.transformers import AutoTokenizer, LlamaTokenizer, T5Tokenizer
+from paddlenlp.transformers import AutoTokenizer, LlamaTokenizer, T5Tokenizer,BloomTokenizer
 from pycocoevalcap.eval import COCOEvalCap
 from pycocotools.coco import COCO
 
@@ -52,6 +52,9 @@ def create_tokenizer(text_model_name_or_path):
         tokenizer_class = T5Tokenizer.from_pretrained(text_model_name_or_path, use_fast=False)
     elif "llama" in text_model_name_or_path:
         tokenizer_class = LlamaTokenizer.from_pretrained(text_model_name_or_path)
+        tokenizer_class.pad_token = tokenizer_class.eos_token
+    elif "bloom" in text_model_name_or_path:
+        tokenizer_class = BloomTokenizer.from_pretrained(text_model_name_or_path)
         tokenizer_class.pad_token = tokenizer_class.eos_token
     else:
         raise NotImplementedError
@@ -156,9 +159,25 @@ def load_model(args, model, optimizer=None, ckpt_dir="", load_language_model=Tru
     ckpt_dir = path
     if ckpt_dir and os.path.isfile(ckpt_dir):
         print("Try to load a whole checkpoint from %s " % ckpt_dir)
-        embedding_list = []
-        collinear_list = ["fc1", "qkv"]
-        rowlinear_list = []
+        embedding_list = ["word_embeddings"]
+        collinear_list = [
+            "fc1",
+            "fc2",
+            "qkv",
+            "proj",
+            "query",
+            "key",
+            "value",
+            "qkv_proj",
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "linear1",
+            "linear2",
+            "project_in",
+            "project_out",
+        ]
+        rowlinear_list = ["out_proj"]
         all_list = collinear_list + rowlinear_list + embedding_list
         skip_list = ["visual_encoder.patch_embed.proj.weight", "visual_encoder.patch_embed.proj.bias"]
 

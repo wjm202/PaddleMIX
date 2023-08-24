@@ -15,12 +15,14 @@
 """ Paddle BLIP2 model."""
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple, Union
+from numpy import float16
 
 import paddle
 import paddle.distributed as dist
 import paddle.nn as nn
 from paddlenlp.transformers import AutoTokenizer
 from paddlenlp.transformers.llama.modeling import LlamaForCausalLM
+from paddlenlp.transformers.bloom.modeling import BloomForCausalLM
 from paddlenlp.transformers.model_outputs import ModelOutput
 from paddlenlp.transformers.model_utils import PretrainedModel
 from paddlenlp.transformers.opt.modeling import OPTForCausalLM
@@ -409,55 +411,26 @@ class Blip2ForConditionalGeneration(Blip2PretrainedModel):
             )
             self.max_txt_len = config.get("max_txt_len")
         else:
-            if config.use_decoder_only_language_model:
-                if "opt" in config.text_config:
-                    language_model = OPTForCausalLM.from_pretrained(
-                        config.text_config,
-                        load_state_as_np=True,
-                        ignore_mismatched_sizes=True,
-                    )
-                elif "llama" in config.text_config:
-                    from paddlenlp.transformers.llama.configuration import LlamaConfig
+            from paddlenlp.transformers.bloom.configuration import BloomConfig
+            import paddle.distributed.fleet as fleet
+            hcg = fleet.get_hybrid_communicate_group()
+            llm_config =BloomConfig.from_pretrained("bigscience/bloom")
+            # config.tensor_parallel_degree=8
+            llm_config.dtype="float16"
+            language_model = BloomForCausalLM(llm_config)
 
-                    if config.mp_degree > 1:
-                        import paddle.distributed.fleet as fleet
-
-                        hcg = fleet.get_hybrid_communicate_group()
-                        language_model = LlamaForCausalLM.from_pretrained(
-                            config.text_config,
-                            tensor_parallel_degree=config.mp_degree,
-                            tensor_parallel_rank=hcg.get_model_parallel_rank(),
-                            tensor_parallel_output=False,
-                        )
-                    else:
-                        language_model = LlamaForCausalLM.from_pretrained(
-                            config.text_config,
-                            tensor_parallel_output=False,
-                        )
-                    language_model.hidden_size = LlamaConfig.from_pretrained(config.text_config).hidden_size
-                    language_model.pad_token_id = LlamaConfig.from_pretrained(config.text_config).pad_token_id
-                else:
-                    raise NotImplementedError
-            else:
-                from paddlenlp.transformers import T5Config
-
-                t5_config = T5Config(config.text_config)
-                for key, value in config.text_config.items():
-                    t5_config[key] = config.text_config[key]
-                language_model = T5ForConditionalGeneration.from_pretrained(config.text_config, load_state_as_np=True)
-                language_model.hidden_size = t5_config["d_model"]
 
             self.language_model = language_model
             for name, param in self.language_model.named_parameters():
                 param.stop_gradient = True
-            self.pad_token_id = self.language_model.pad_token_id
+            self.pad_token_id = llm_config.pad_token_id
 
             self.Qformer = BertLMHeadModel.from_pretrained(
                 pretrained_model_name_or_path=config.qformer_config,
                 mp_degree=config.mp_degree,
                 encoder_width=self.visual_encoder.num_features,
                 train_in_satge1=False,
-                text_hidden_size=self.language_model.hidden_size,
+                text_hidden_size=llm_config.hidden_size,
                 ignore_mismatched_sizes=True,
             )
             self.Qformer.cls = None

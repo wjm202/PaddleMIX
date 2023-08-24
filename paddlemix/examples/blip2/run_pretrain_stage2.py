@@ -74,7 +74,7 @@ class ModelArguments:
     )
 
     text_model_name_or_path: str = field(
-        default="facebook/opt-2.7b",
+        default="bigscience/bloom",
         metadata={"help": "The type of text model to use (OPT, T5)."},
     )
     image_size: int = field(default=224, metadata={"help": " Image size for training. (default:224)"})
@@ -95,7 +95,7 @@ class PreTrainingArguments(TrainingArguments):
     warmup_steps: int = field(default=2000, metadata={"help": "Number of warmup steps."})
     lr_scheduler_name: str = field(default="CosineDecayWithWarmup", metadata={"help": "The scheduler name to use."})
     per_device_train_batch_size: int = field(
-        default=32, metadata={"help": "Batch size per GPU core/CPU for training. (default: 8)"}
+        default=1, metadata={"help": "Batch size per GPU core/CPU for training. (default: 8)"}
     )
     per_device_eval_batch_size: int = field(
         default=128, metadata={"help": " Batch size per GPU core/CPU for evaluation. (default:8)"}
@@ -105,7 +105,7 @@ class PreTrainingArguments(TrainingArguments):
     do_eval: bool = field(default=False, metadata={"help": "Whether to evaluation."})
     do_train: bool = field(default=True, metadata={"help": "Whether to train."})
 
-    logging_steps: int = field(default=50, metadata={"help": "Logging interval"})
+    logging_steps: int = field(default=1, metadata={"help": "Logging interval"})
     evaluation_strategy: str = field(default="no", metadata={"help": "Evaluation strategy (epoch/steps/no)"})
 
     fp16_opt_level: str = field(default="O1", metadata={"help": "Mixed Precision Type"})
@@ -113,7 +113,7 @@ class PreTrainingArguments(TrainingArguments):
     gradient_checkpointing: bool = field(
         default=False, metadata={"help": "Forward recompute for saving graphics memory"}
     )
-    tensor_parallel_degree: int = field(default=1, metadata={"help": "Set the number of tensor model parallel"})
+    tensor_parallel_degree: int = field(default=8, metadata={"help": "Set the number of tensor model parallel"})
     sharding_parallel_degree: int = field(
         default=1, metadata={"help": "Set the number of sharding, enable sharding parallel"}
     )
